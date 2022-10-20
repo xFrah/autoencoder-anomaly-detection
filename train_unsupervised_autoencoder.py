@@ -58,7 +58,7 @@ def visualize_predictions(decoded, gt, samples=10):
     outputs = None
 
     # loop over our number of output samples
-    for i in range(0, samples):
+    for i in range(0, len(decoded)):
         # grab the original image and reconstructed image
         original = (gt[i] * 255).astype("uint8")
         recon = (decoded[i] * 255).astype("uint8")
@@ -101,8 +101,14 @@ paper_dir, other_dir = os.listdir("paper"), os.listdir("other")
 trainX = np.array([imageio.imread("paper/" + f) for f in paper_dir] + [imageio.imread("other/" + f) for f in other_dir])
 trainY = np.array(([0] * len(paper_dir)) + ([1] * len(other_dir)))
 
-print("[INFO] loading MNIST dataset...")
-((trainX, trainY), (testX, testY)) = mnist.load_data()
+#print(trainX.shape)
+
+#trainX: np.ndarray
+
+#print("[INFO] loading MNIST dataset...")
+#((trainX, trainY), (testX, testY)) = mnist.load_data()
+
+#print(trainX.shape)
 
 # build our unsupervised dataset of images with a small amount of
 # contamination (i.e., anomalies) added into it
@@ -111,7 +117,7 @@ images = build_unsupervised_dataset(trainX, trainY, contam=0.07)
 
 # add a channel dimension to every image in the dataset, then scale
 # the pixel intensities to the range [0, 1]
-images = np.expand_dims(images, axis=-1)
+#images = np.expand_dims(images, axis=-1)
 images = images.astype("float32") / 255.0
 
 # construct the training and testing split
@@ -120,7 +126,7 @@ images = images.astype("float32") / 255.0
 
 # construct our convolutional autoencoder
 print("[INFO] building autoencoder...")
-(encoder, decoder, autoencoder) = ConvAutoencoder.build(182, 182, 3)
+(encoder, decoder, autoencoder) = ConvAutoencoder.build(182, 182, 3, latentDim=64)
 opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS)
 autoencoder.compile(loss="mse", optimizer=opt)
 

@@ -11,6 +11,9 @@ from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 import numpy as np
+from tensorflow.python.keras.models import Sequential
+from tensorflow.python.layers import layers
+
 
 class ConvAutoencoder:
 	@staticmethod
@@ -28,7 +31,7 @@ class ConvAutoencoder:
 		# loop over the number of filters
 		for f in filters:
 			# apply a CONV => RELU => BN operation
-			x = Conv2D(f, (3, 3), strides=2, padding="same")(x)
+			x = Conv2D(f, (3, 3))(x)
 			x = LeakyReLU(alpha=0.2)(x)
 			x = BatchNormalization(axis=chanDim)(x)
 
@@ -50,8 +53,7 @@ class ConvAutoencoder:
 		# reverse order
 		for f in filters[::-1]:
 			# apply a CONV_TRANSPOSE => RELU => BN operation
-			x = Conv2DTranspose(f, (3, 3), strides=2,
-				padding="same")(x)
+			x = Conv2DTranspose(f, (3, 3))(x)
 			x = LeakyReLU(alpha=0.2)(x)
 			x = BatchNormalization(axis=chanDim)(x)
 
@@ -68,4 +70,4 @@ class ConvAutoencoder:
 			name="autoencoder")
 
 		# return a 3-tuple of the encoder, decoder, and autoencoder
-		return (encoder, decoder, autoencoder)
+		return encoder, decoder, autoencoder
