@@ -48,9 +48,11 @@ print("[INFO] {} outliers found".format(len(idxs)))
 
 # initialize the outputs array
 outputs = None
+outputs2 = None
 
 # loop over the indexes of images with a high mean squared error term
-for i in idxs:
+for i in [x[0] for x in sorted(enumerate(images), key=lambda a: errors[a[0]])][15:]:
+
 	# grab the original image and reconstructed image
 	original = (images[i] * 255).astype("uint8")
 	recon = (decoded[i] * 255).astype("uint8")
@@ -67,6 +69,24 @@ for i in idxs:
 	else:
 		outputs = np.vstack([outputs, output])
 
+for i in idxs:
+	# grab the original image and reconstructed image
+	original = (images[i] * 255).astype("uint8")
+	recon = (decoded[i] * 255).astype("uint8")
+
+	# stack the original and reconstructed image side-by-side
+	output2 = np.hstack([original, recon])
+
+	# if the outputs array is empty, initialize it as the current
+	# side-by-side image display
+	if outputs2 is None:
+		outputs2 = output2
+
+	# otherwise, vertically stack the outputs
+	else:
+		outputs2 = np.vstack([outputs2, output2])
+
 # show the output visualization
 cv2.imshow("Output", outputs)
+cv2.imshow("Output2", outputs2)
 cv2.waitKey(0)

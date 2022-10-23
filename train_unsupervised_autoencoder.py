@@ -3,6 +3,9 @@
 
 # set the matplotlib backend so figures can be saved in the background
 import matplotlib
+from keras.api._v2.keras.layers.experimental import preprocessing
+from keras_preprocessing.image import ImageDataGenerator
+from tensorflow.python.keras import Sequential
 
 matplotlib.use("Agg")
 
@@ -93,56 +96,90 @@ args = vars(ap.parse_args())
 
 # initialize the number of epochs to train for, initial learning rate,
 # and batch size
-EPOCHS = 20
+EPOCHS = 1000
 INIT_LR = 1e-3
-BS = 32
+BS = 14
 
 paper_dir, other_dir = os.listdir("paper"), os.listdir("other")
-trainX = np.array([imageio.imread("paper/" + f) for f in paper_dir] + [imageio.imread("other/" + f) for f in other_dir])
+trainX = [imageio.imread("paper/" + f) for f in paper_dir] + [imageio.imread("other/" + f) for f in other_dir]
+trainX = np.array([cv2.resize(i, (45, 45)) for i in trainX])
 trainY = np.array(([0] * len(paper_dir)) + ([1] * len(other_dir)))
 
-#print(trainX.shape)
+# print(trainX.shape)
 
-#trainX: np.ndarray
+# trainX: np.ndarray
 
-#print("[INFO] loading MNIST dataset...")
-#((trainX, trainY), (testX, testY)) = mnist.load_data()
+# print("[INFO] loading MNIST dataset...")
+# ((trainX, trainY), (testX, testY)) = mnist.load_data()
 
-#print(trainX.shape)
+# print(trainX.shape)
 
 # build our unsupervised dataset of images with a small amount of
 # contamination (i.e., anomalies) added into it
 print("[INFO] creating unsupervised dataset...")
-images = build_unsupervised_dataset(trainX, trainY, contam=0.07)
+images = build_unsupervised_dataset(trainX, trainY, contam=0.0)
+images2 = build_unsupervised_dataset(trainX, trainY, contam=0.07)
+
+datagen = ImageDataGenerator(
+    featurewise_center=False,  # set input mean to 0 over the dataset
+    samplewise_center=False,  # set each sample mean to 0
+    featurewise_std_normalization=False,  # divide inputs by std of the dataset
+    samplewise_std_normalization=False,  # divide each input by its std
+    zca_whitening=False,  # apply ZCA whitening
+    zca_epsilon=1e-06,  # epsilon for ZCA whitening
+    rotation_range=180,  # randomly rotate images in the range (degrees, 0 to 180)  <<1    0 => 30
+    shear_range=0.2,  # set range for random shear  <<3<<4  0 => 0.1 => 0.2
+    zoom_range=0.3,  # set range for random zoom    <<1<<2<<3   0 => 0.1 => 0.2 =>0.3
+    channel_shift_range=0.2,  # set range for random channel shifts     <<5<<6   0.=>0.1=>0.2
+    # set mode for filling points outside the input boundaries
+    fill_mode='nearest',
+    cval=0.,  # value used for fill_mode = "constant"
+    horizontal_flip=True,  # randomly flip images
+    vertical_flip=True,  # randomly flip images    <<1    false => True
+    # set rescaling factor (applied before any other transformation)
+    rescale=None,
+    # set function that will be applied on each input
+    preprocessing_function=None,
+    # image data format, either "channels_first" or "channels_last"
+    data_format="channels_last",
+    # fraction of images reserved for validation (strictly between 0 and 1)
+    validation_split=0.0)
 
 # add a channel dimension to every image in the dataset, then scale
 # the pixel intensities to the range [0, 1]
-#images = np.expand_dims(images, axis=-1)
+# images = np.expand_dims(images, axis=-1)
 images = images.astype("float32") / 255.0
+images2 = images2.astype("float32") / 255.0
 
 # construct the training and testing split
 (trainX, testX) = train_test_split(images, test_size=0.2,
                                    random_state=42)
 
+# construct the training and testing split
+(trainX2, testX2) = train_test_split(images2, test_size=0.2,
+                                     random_state=42)
+
 # construct our convolutional autoencoder
 print("[INFO] building autoencoder...")
-(encoder, decoder, autoencoder) = ConvAutoencoder.build(182, 182, 3, latentDim=64)
+(encoder, decoder, autoencoder) = ConvAutoencoder.build(45, 45, 3)
 opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS)
 autoencoder.compile(loss="mse", optimizer=opt)
 
 # train the convolutional autoencoder
 H = autoencoder.fit(
-    trainX, trainX,
-    validation_data=(testX, testX),
-    epochs=EPOCHS,
-    batch_size=BS)
+    datagen.flow(trainX, trainX,
+                 batch_size=BS),
+    steps_per_epoch=2,
+    validation_data=datagen.flow(testX2, testX2,
+                                 batch_size=BS),
+    epochs=EPOCHS)
 
 # use the convolutional autoencoder to make predictions on the
 # testing images, construct the visualization, and then save it
 # to disk
 print("[INFO] making predictions...")
-decoded = autoencoder.predict(testX)
-vis = visualize_predictions(decoded, testX)
+decoded = autoencoder.predict(testX2)
+vis = visualize_predictions(decoded, testX2)
 cv2.imwrite(args["vis"], vis)
 
 # construct a plot that plots and saves the training history
@@ -160,7 +197,7 @@ plt.savefig(args["plot"])
 # serialize the image data to disk
 print("[INFO] saving image data...")
 f = open(args["dataset"], "wb")
-f.write(pickle.dumps(images))
+f.write(pickle.dumps(images2))
 f.close()
 
 # serialize the autoencoder model to disk
